@@ -1,20 +1,34 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Nebula UI Docs
 
-# Run and deploy your AI Studio app
+Documentation site for Nebula UI component library with integrated AI assistant.
 
-This contains everything you need to run your app locally.
+## Tech Stack
 
-View your app in AI Studio: https://ai.studio/apps/drive/1cQQI9513NPg29N281v7r5DuZxSleDbPh
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- Google Gemini AI
+- react-code-blocks
 
-## Run Locally
+## Getting Started
 
-**Prerequisites:**  Node.js
+```bash
+# Install dependencies
+pnpm install
 
+# Set your Gemini API key
+cp .env.local.example .env.local
+# Edit .env.local with your GEMINI_API_KEY
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+# Start dev server
+pnpm run dev
+```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start development server |
+| `pnpm build` | Build for production |
+| `pnpm preview` | Preview production build |
