@@ -2,17 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { DocContent } from './components/DocContent';
-import { AskAI } from './components/AskAI';
 import { MOCK_DOCS, NAV_STRUCTURE } from './constants';
-import { DocPage } from './types';
 
 function App() {
   // Navigation State
   const [activeSlug, setActiveSlug] = useState('introduction');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // AI Modal State
-  const [isAiOpen, setIsAiOpen] = useState(false);
 
   // Theme State - default to dark
   const [theme, setTheme] = useState(() => {
@@ -40,42 +35,19 @@ function App() {
   // Derived State
   const activePage = MOCK_DOCS.find(doc => doc.slug === activeSlug) || MOCK_DOCS[0];
 
-  // Handle keyboard shortcut for AI search
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsAiOpen(prev => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // Prevent scroll when modal is open
-  useEffect(() => {
-    if (isAiOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-  }, [isAiOpen]);
-
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors duration-200">
-      <Header 
-        onMenuClick={() => setIsMobileMenuOpen(true)} 
-        onSearchClick={() => setIsAiOpen(true)}
+      <Header
+        onMenuClick={() => setIsMobileMenuOpen(true)}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
 
       <div className="flex pt-14">
         {/* Left Sidebar */}
-        <Sidebar 
-          navItems={NAV_STRUCTURE} 
-          activeSlug={activeSlug} 
+        <Sidebar
+          navItems={NAV_STRUCTURE}
+          activeSlug={activeSlug}
           onNavigate={setActiveSlug}
           isOpenMobile={isMobileMenuOpen}
           setIsOpenMobile={setIsMobileMenuOpen}
@@ -101,13 +73,6 @@ function App() {
            </ul>
         </aside>
       </div>
-
-      {/* AI Modal */}
-      <AskAI 
-        isOpen={isAiOpen} 
-        onClose={() => setIsAiOpen(false)} 
-        currentDoc={activePage}
-      />
     </div>
   );
 }
