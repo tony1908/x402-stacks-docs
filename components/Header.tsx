@@ -20,10 +20,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, onSearchClick, them
           <Menu size={20} />
         </button>
         <div className="flex items-center gap-2 font-bold text-lg tracking-tight text-slate-900 dark:text-white">
-           <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center text-white text-xs">N</div>
+           <div className="w-6 h-6 bg-orange-500 rounded-md flex items-center justify-center text-white text-xs font-bold">x</div>
            {DOC_NAME}
         </div>
-        <span className="hidden sm:inline-block px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full border border-slate-200 dark:border-slate-700 ml-2">v2.0.0</span>
+        <span className="hidden sm:inline-block px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full border border-slate-200 dark:border-slate-700 ml-2">v1.0.2</span>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">

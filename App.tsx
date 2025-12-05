@@ -14,14 +14,13 @@ function App() {
   // AI Modal State
   const [isAiOpen, setIsAiOpen] = useState(false);
 
-  // Theme State
+  // Theme State - default to dark
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme) return savedTheme;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    return 'light';
+    return 'dark';
   });
 
   // Apply theme class to document

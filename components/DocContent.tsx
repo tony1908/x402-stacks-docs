@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { CopyBlock, dracula } from 'react-code-blocks';
 import { DocPage } from '../types';
 
@@ -18,6 +19,7 @@ export const DocContent: React.FC<DocContentProps> = ({ page }) => {
 
          <div className="markdown-body">
            <ReactMarkdown
+             remarkPlugins={[remarkGfm]}
              components={{
                code({ className, children, ...props }) {
                  const match = /language-(\w+)/.exec(className || '');
