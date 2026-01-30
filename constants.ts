@@ -378,6 +378,190 @@ Your API is now ready to accept STX payments through x402-stacks!
 - [Main Repository](https://github.com/tony1908/x402Stacks)`
   },
   {
+    id: 'register-x402scan',
+    title: 'Register with x402scan',
+    slug: 'getting-started/register-x402scan',
+    content: `# Register with x402scan
+
+Once your x402 API is live, register it with **x402scan** to make it discoverable by buyers and AI agents in the Stacks ecosystem.
+
+## What is x402scan?
+
+x402scan is a registry and discovery service for x402 endpoints. It allows:
+
+- **Sellers** to list their payment-enabled APIs
+- **Buyers** to discover available services and their pricing
+- **AI agents** to programmatically find and pay for API access
+
+## How to Register
+
+Visit [scan.stacksx402.com](https://scan.stacksx402.com/) and submit your API URL. The system will automatically fetch and validate your x402 schema.
+
+> **Note:** Re-registering the same URL updates your existing listing.
+
+## Schema Requirements
+
+When x402scan fetches your URL, your endpoint must return a valid x402 response. Here are the requirements:
+
+### Required Fields
+
+| Field | Requirement |
+|-------|-------------|
+| \`name\` | Must be non-empty |
+| \`accepts\` | Must be a non-empty array |
+| \`accepts[].network\` | Must be \`"stacks"\` |
+| \`accepts[].outputSchema\` | **Required** for x402scan listing |
+
+### URL Requirements
+
+- Must use **HTTPS** (HTTP URLs are rejected)
+- Must return HTTP \`402 Payment Required\` or \`200 OK\`
+- Must return valid JSON with the x402 schema
+
+## Complete Schema Example
+
+Your endpoint should return this structure:
+
+\`\`\`json
+{
+  "x402Version": 1,
+  "name": "Weather API",
+  "image": "https://your-api.com/logo.png",
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "stacks",
+      "maxAmountRequired": "1000000",
+      "resource": "https://your-api.com/weather",
+      "description": "Get current weather data for any city",
+      "mimeType": "application/json",
+      "payTo": "SP2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKNRV9EJ7",
+      "maxTimeoutSeconds": 60,
+      "asset": "STX",
+      "outputSchema": {
+        "input": {
+          "type": "request",
+          "method": "GET",
+          "queryParams": {
+            "city": {
+              "type": "string",
+              "required": true,
+              "description": "City name to get weather for"
+            },
+            "units": {
+              "type": "string",
+              "required": false,
+              "description": "Temperature units",
+              "enum": ["celsius", "fahrenheit"]
+            }
+          }
+        },
+        "output": {
+          "temperature": { "type": "number" },
+          "conditions": { "type": "string" },
+          "humidity": { "type": "number" }
+        }
+      }
+    }
+  ]
+}
+\`\`\`
+
+## outputSchema Deep Dive
+
+The \`outputSchema\` field is **required** for x402scan. It describes how to call your API and what it returns, enabling:
+
+- Documentation generation
+- Client code generation
+- AI agent integration
+
+### Input Definition
+
+\`\`\`json
+{
+  "input": {
+    "type": "request",
+    "method": "GET",
+    "queryParams": {
+      "paramName": {
+        "type": "string",
+        "required": true,
+        "description": "What this parameter does"
+      }
+    }
+  }
+}
+\`\`\`
+
+**Supported input fields:**
+
+| Field | Description |
+|-------|-------------|
+| \`type\` | Always \`"request"\` |
+| \`method\` | HTTP method: \`GET\`, \`POST\`, etc. |
+| \`queryParams\` | URL query parameters |
+| \`bodyFields\` | Request body fields (for POST/PUT) |
+| \`bodyType\` | Body content type (e.g., \`"json"\`) |
+| \`headerFields\` | Custom header fields |
+
+### Field Definition
+
+Each parameter or field is defined as:
+
+\`\`\`json
+{
+  "type": "string",
+  "required": true,
+  "description": "Human-readable description",
+  "enum": ["option1", "option2"]
+}
+\`\`\`
+
+### Output Definition
+
+Describe your API's response structure:
+
+\`\`\`json
+{
+  "output": {
+    "fieldName": { "type": "string" },
+    "nestedObject": {
+      "properties": {
+        "innerField": { "type": "number" }
+      }
+    }
+  }
+}
+\`\`\`
+
+## Validation Errors
+
+If registration fails, you'll receive one of these errors:
+
+| Error | Cause |
+|-------|-------|
+| \`invalid_url\` | URL is not valid HTTPS |
+| \`invalid_network\` | Network is not \`"stacks"\` |
+| \`missing_output_schema\` | \`outputSchema\` is missing from accepts |
+| \`empty_accepts\` | \`accepts\` array is empty |
+| \`invalid_name\` | \`name\` field is empty |
+
+## After Registration
+
+Once registered, your API:
+
+1. Appears in the x402scan directory at [scan.stacksx402.com](https://scan.stacksx402.com/)
+2. Is discoverable via the x402scan API
+3. Gets periodically re-validated to ensure schema freshness
+
+## Summary
+
+1. Build your x402 API using the Quickstart for Sellers guide
+2. Ensure your endpoint returns a valid schema with \`outputSchema\`
+3. Register at [scan.stacksx402.com](https://scan.stacksx402.com/)
+4. Your API is now discoverable by the x402 ecosystem!`
+  },
+  {
     id: 'http-402',
     title: 'HTTP 402',
     slug: 'core-concepts/http-402',
@@ -746,6 +930,7 @@ export const NAV_STRUCTURE: NavItem[] = [
       { id: 'intro', title: 'Welcome', slug: 'introduction' },
       { id: 'quickstart-buyers', title: 'Quickstart for Buyers', slug: 'getting-started/quickstart-buyers' },
       { id: 'quickstart-sellers', title: 'Quickstart for Sellers', slug: 'getting-started/quickstart-sellers' },
+      { id: 'register-x402scan', title: 'Register with x402scan', slug: 'getting-started/register-x402scan' },
     ]
   },
   {
