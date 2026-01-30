@@ -22,7 +22,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, theme, onToggleThem
            <div className="w-6 h-6 bg-orange-500 rounded-md flex items-center justify-center text-white text-xs font-bold">x</div>
            {DOC_NAME}
         </div>
-        <span className="hidden sm:inline-block px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full border border-slate-200 dark:border-slate-700 ml-2">v1.0.2</span>
+        <span className="hidden sm:inline-block px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full border border-slate-200 dark:border-slate-700 ml-2">v2.0.0</span>
       </div>
 
       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">

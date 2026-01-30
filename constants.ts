@@ -15,6 +15,8 @@ It is built around the HTTP \`402 Payment Required\` status code and allows clie
 
 With x402-stacks, any web service can require payment before serving a response, using crypto-native payments for speed, privacy, and efficiency.
 
+> **x402-stacks v2** is now Coinbase x402 protocol compatible, using standardized CAIP-2 network identifiers and base64-encoded payment headers.
+
 ## Why Use x402-stacks?
 
 x402-stacks addresses key limitations of existing payment systems:
@@ -23,6 +25,7 @@ x402-stacks addresses key limitations of existing payment systems:
 - **Incompatibility with machine-to-machine payments**, such as AI agents
 - **Lack of support for micropayments**, making it difficult to monetize usage-based services
 - **Native STX and sBTC support** for the Stacks ecosystem
+- **Coinbase x402 compatible** for interoperability with the broader ecosystem
 
 ## Who is x402-stacks for?
 
@@ -56,6 +59,8 @@ At a high level, the flow is simple:
 - [npm package: x402-stacks](https://www.npmjs.com/package/x402-stacks)
 - [Example Repository](https://github.com/tony1908/x402-stacks-example)
 - [Main Repository](https://github.com/tony1908/x402Stacks)
+- [x402scan - API Discovery](https://scan.stacksx402.com)
+- [Facilitator Service](https://facilitator.stacksx402.com)
 
 ## Get Started
 
@@ -63,7 +68,9 @@ Ready to build? Start here:
 
 - Quickstart for Sellers
 - Quickstart for Buyers
-- Explore Core Concepts`
+- Explore Core Concepts
+
+> **Upgrading from v1?** Check out the [Migration Guide](getting-started/migration) for all the changes.`
   },
   {
     id: 'quickstart-buyers',
@@ -72,6 +79,8 @@ Ready to build? Start here:
     content: `# Quickstart for Buyers
 
 This guide walks you through how to use **x402-stacks** to interact with services that require payment. By the end of this guide, you will be able to programmatically discover payment requirements, complete a payment, and access a paid resource.
+
+> **Note:** This guide uses the V2 API (Coinbase compatible). See the [Legacy V1 API](#legacy-v1-api) section below if you're using an older version.
 
 ## Prerequisites
 
@@ -117,15 +126,15 @@ const newAccount = privateKeyToAccount(keypair.privateKey, NETWORK);
 
 ## 3. Make Paid Requests Automatically
 
-x402-stacks provides an Axios interceptor that automatically handles 402 Payment Required responses:
+x402-stacks provides an Axios wrapper that automatically handles 402 Payment Required responses:
 
 \`\`\`typescript
 import 'dotenv/config';
 import axios from 'axios';
 import {
-  withPaymentInterceptor,
+  wrapAxiosWithPayment,
   privateKeyToAccount,
-  decodeXPaymentResponse,
+  decodePaymentResponse,
   generateKeypair,
   getExplorerURL,
 } from 'x402-stacks';
@@ -147,8 +156,8 @@ if (process.env.CLIENT_PRIVATE_KEY) {
   account = privateKeyToAccount(keypair.privateKey, NETWORK);
 }
 
-// Create axios with automatic payment handling
-const api = withPaymentInterceptor(
+// Create axios with automatic payment handling (V2)
+const api = wrapAxiosWithPayment(
   axios.create({
     baseURL: SERVER_URL,
     timeout: 60000,
@@ -173,13 +182,13 @@ async function main() {
 
     console.log('Success! Data:', response.data);
 
-    // Decode payment response from headers
-    const paymentResponse = decodeXPaymentResponse(
-      response.headers['x-payment-response']
+    // Decode payment response from headers (V2 uses base64-encoded 'payment-response')
+    const paymentResponse = decodePaymentResponse(
+      response.headers['payment-response']
     );
     if (paymentResponse) {
-      console.log('Payment txId:', paymentResponse.txId);
-      console.log('Explorer:', getExplorerURL(paymentResponse.txId, NETWORK));
+      console.log('Payment transaction:', paymentResponse.transaction);
+      console.log('Explorer:', getExplorerURL(paymentResponse.transaction, NETWORK));
     }
   } catch (error: any) {
     console.error('Error:', error.response?.data?.error || error.message);
@@ -212,9 +221,32 @@ Clients will throw errors if:
 
 - Install the \`x402-stacks\` package
 - Create or load a Stacks wallet using \`privateKeyToAccount\` or \`generateKeypair\`
-- Use \`withPaymentInterceptor\` to wrap your Axios instance
+- Use \`wrapAxiosWithPayment\` to wrap your Axios instance
 - Payment flows are handled automatically for you
-- Use \`decodeXPaymentResponse\` to get transaction details
+- Use \`decodePaymentResponse\` to get transaction details
+
+---
+
+## Legacy V1 API
+
+If you're using x402-stacks < 2.0, use these functions instead:
+
+| V2 (Recommended) | V1 (Legacy) |
+|------------------|-------------|
+| \`wrapAxiosWithPayment()\` | \`withPaymentInterceptor()\` |
+| \`decodePaymentResponse()\` | \`decodeXPaymentResponse()\` |
+| \`payment-response\` header | \`x-payment-response\` header |
+
+\`\`\`typescript
+// V1 Legacy Example
+import { withPaymentInterceptor, decodeXPaymentResponse } from 'x402-stacks';
+
+const api = withPaymentInterceptor(axios.create(), account);
+const response = await api.get('/api/premium-data');
+const payment = decodeXPaymentResponse(response.headers['x-payment-response']);
+\`\`\`
+
+See the [Migration Guide](getting-started/migration) for full details.
 
 ## References
 
@@ -230,6 +262,8 @@ Clients will throw errors if:
     content: `# Quickstart for Sellers
 
 This guide walks you through integrating with **x402-stacks** to enable payments for your API or service. By the end, your API will be able to charge buyers and AI agents for access using STX.
+
+> **Note:** This guide uses the V2 API (Coinbase compatible). See the [Legacy V1 API](#legacy-v1-api) section below if you're using an older version.
 
 ## Prerequisites
 
@@ -250,31 +284,31 @@ npm install -D @types/express typescript ts-node
 
 Integrate the payment middleware into your Express application. You will need to provide:
 
-- Your receiving wallet address
+- Your receiving wallet address (\`payTo\`)
 - The payment amount in microSTX
-- The network (mainnet or testnet)
+- The network (mainnet or testnet, or CAIP-2 format)
 - The facilitator URL
 
 \`\`\`typescript
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
-import { x402PaymentRequired, getPayment, STXtoMicroSTX } from 'x402-stacks';
+import { paymentMiddleware, getPayment, STXtoMicroSTX } from 'x402-stacks';
 
 const NETWORK = (process.env.NETWORK as 'mainnet' | 'testnet') || 'testnet';
 const SERVER_ADDRESS = process.env.SERVER_ADDRESS!;
 const PORT = process.env.PORT || 3003;
-const FACILITATOR_URL = process.env.FACILITATOR_URL || 'https://facilitator.x402stacks.xyz';
+const FACILITATOR_URL = process.env.FACILITATOR_URL || 'https://facilitator.stacksx402.com';
 
 const app = express();
 app.use(express.json());
 
-// Protected endpoint - requires STX payment
+// Protected endpoint - requires STX payment (V2)
 app.get(
   '/api/premium-data',
-  x402PaymentRequired({
+  paymentMiddleware({
     amount: STXtoMicroSTX(0.00001), // 0.00001 STX = 10 microSTX
-    address: SERVER_ADDRESS,
-    network: NETWORK,
+    payTo: SERVER_ADDRESS,          // V2 uses 'payTo' instead of 'address'
+    network: NETWORK,               // Accepts 'testnet', 'mainnet', or CAIP-2 format
     facilitatorUrl: FACILITATOR_URL,
   }),
   (req: Request, res: Response) => {
@@ -289,9 +323,9 @@ app.get(
         timestamp: new Date().toISOString()
       },
       payment: {
-        txId: payment.txId,
-        amount: payment.amount.toString(),
-        sender: payment.sender,
+        transaction: payment?.transaction,
+        payer: payment?.payer,
+        network: payment?.network,
       },
     });
   }
@@ -317,19 +351,22 @@ Create a \`.env\` file:
 NETWORK=testnet
 SERVER_ADDRESS=SP2... # Your Stacks wallet address
 PORT=3003
-FACILITATOR_URL=https://facilitator.x402stacks.xyz
+FACILITATOR_URL=https://facilitator.stacksx402.com
 \`\`\`
 
 ## 4. Understanding the Middleware
 
-### x402PaymentRequired Options
+### paymentMiddleware Options (V2)
 
 | Option | Type | Description |
 |--------|------|-------------|
-| \`amount\` | number | Payment amount in microSTX |
-| \`address\` | string | Your Stacks wallet address to receive payments |
-| \`network\` | 'mainnet' \\| 'testnet' | Stacks network to use |
+| \`amount\` | string \\| bigint | Payment amount in microSTX |
+| \`payTo\` | string | Your Stacks wallet address to receive payments |
+| \`network\` | string | Network: \`'testnet'\`, \`'mainnet'\`, or CAIP-2 format (\`'stacks:1'\`, \`'stacks:2147483648'\`) |
 | \`facilitatorUrl\` | string | URL of the payment facilitator service |
+| \`asset\` | string | (Optional) Asset type: \`'STX'\`, \`'sBTC'\`, or contract identifier |
+| \`description\` | string | (Optional) Human-readable resource description |
+| \`maxTimeoutSeconds\` | number | (Optional) Payment timeout, default 300 |
 
 ### Helper Functions
 
@@ -352,24 +389,54 @@ The server responds with \`402 Payment Required\` and payment instructions.
 
 3. Use a compatible client (see Quickstart for Buyers) to complete the payment flow.
 
-## 6. Payment Flow
+## 6. Payment Flow (V2)
 
 When a request is made to a protected endpoint:
 
-1. Middleware checks for \`X-PAYMENT\` header
-2. If missing, returns \`402 Payment Required\` with payment details
-3. If present, verifies payment via the facilitator
+1. Middleware checks for \`payment-signature\` header (base64-encoded)
+2. If missing, returns \`402 Payment Required\` with \`payment-required\` header
+3. If present, verifies and settles payment via the facilitator
 4. If valid, attaches payment info to request and calls your handler
-5. Response includes \`X-PAYMENT-RESPONSE\` header with transaction details
+5. Response includes \`payment-response\` header with settlement details
 
 ## Summary
 
 - Install \`x402-stacks\` and Express dependencies
-- Use \`x402PaymentRequired\` middleware on protected routes
-- Configure your wallet address and facilitator URL
+- Use \`paymentMiddleware\` on protected routes
+- Configure \`payTo\` (your wallet address) and \`facilitatorUrl\`
 - Use \`getPayment(req)\` to access verified payment details
 
 Your API is now ready to accept STX payments through x402-stacks!
+
+---
+
+## Legacy V1 API
+
+If you're using x402-stacks < 2.0, use these functions instead:
+
+| V2 (Recommended) | V1 (Legacy) |
+|------------------|-------------|
+| \`paymentMiddleware()\` | \`x402PaymentRequired()\` |
+| \`payTo\` config | \`address\` config |
+| \`payment-signature\` header | \`X-PAYMENT\` header |
+| \`payment-response\` header | \`X-PAYMENT-RESPONSE\` header |
+
+\`\`\`typescript
+// V1 Legacy Example
+import { x402PaymentRequired, getPayment } from 'x402-stacks';
+
+app.get('/api/premium-data',
+  x402PaymentRequired({
+    amount: STXtoMicroSTX(0.00001),
+    address: SERVER_ADDRESS,  // V1 uses 'address'
+    network: NETWORK,
+    facilitatorUrl: FACILITATOR_URL,
+  }),
+  handler
+);
+\`\`\`
+
+See the [Migration Guide](getting-started/migration) for full details.
 
 ## References
 
@@ -579,28 +646,39 @@ In x402-stacks, this status code is activated to:
 - Communicate the details of the payment, such as amount in STX and destination address
 - Provide the information necessary to complete the payment programmatically
 
-## 402 Response Structure
+## 402 Response Structure (V2)
 
-When a server requires payment, it responds with:
+When a server requires payment, it responds with a JSON body and a \`payment-required\` header (base64-encoded):
 
 \`\`\`json
 {
-  "error": "Payment Required",
-  "paymentDetails": {
-    "amount": 10,
-    "address": "SP2...",
-    "network": "testnet",
-    "facilitatorUrl": "https://facilitator.x402stacks.xyz"
-  }
+  "x402Version": 2,
+  "resource": {
+    "url": "https://api.example.com/premium-data",
+    "description": "Premium API access"
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "stacks:2147483648",
+      "amount": "10",
+      "asset": "STX",
+      "payTo": "SP2...",
+      "maxTimeoutSeconds": 300
+    }
+  ]
 }
 \`\`\`
 
 | Field | Description |
 |-------|-------------|
-| \`amount\` | Payment amount in microSTX |
-| \`address\` | Seller's Stacks wallet address |
-| \`network\` | "mainnet" or "testnet" |
-| \`facilitatorUrl\` | URL for payment verification/settlement |
+| \`x402Version\` | Protocol version (must be 2) |
+| \`resource\` | Information about the protected resource |
+| \`accepts\` | Array of accepted payment methods |
+| \`accepts[].network\` | CAIP-2 network ID (\`stacks:1\` or \`stacks:2147483648\`) |
+| \`accepts[].amount\` | Payment amount in atomic units (microSTX) |
+| \`accepts[].payTo\` | Seller's Stacks wallet address |
+| \`accepts[].asset\` | Asset type (\`STX\`, \`sBTC\`, or contract ID) |
 
 ## Why x402-stacks Uses HTTP 402
 
@@ -613,28 +691,45 @@ The primary purpose of HTTP 402 is to enable frictionless, API-native payments f
 
 Using the 402 status code keeps the protocol natively web-compatible and easy to integrate into any HTTP-based service.
 
-## Payment Headers
+## Payment Headers (V2)
 
-### Request Header
+### Payment Required Header
 
-Clients include payment proof in the \`X-PAYMENT\` header:
-
-\`\`\`
-X-PAYMENT: <base64-encoded-payment-payload>
-\`\`\`
-
-### Response Header
-
-Servers include transaction details in the \`X-PAYMENT-RESPONSE\` header:
+Servers include payment requirements in the \`payment-required\` header (base64-encoded JSON):
 
 \`\`\`
-X-PAYMENT-RESPONSE: <base64-encoded-payment-response>
+payment-required: eyJ4NDAyVmVyc2lvbiI6MiwicmVzb3VyY2UiOi4uLn0=
 \`\`\`
 
-Decode using \`decodeXPaymentResponse()\` to get:
-- \`txId\`: Transaction ID on the Stacks blockchain
-- \`amount\`: Amount paid in microSTX
-- \`sender\`: Sender's Stacks address
+### Payment Signature Header
+
+Clients include signed payment in the \`payment-signature\` header (base64-encoded JSON):
+
+\`\`\`
+payment-signature: eyJ4NDAyVmVyc2lvbiI6MiwiYWNjZXB0ZWQiOi4uLn0=
+\`\`\`
+
+### Payment Response Header
+
+Servers include settlement details in the \`payment-response\` header (base64-encoded JSON):
+
+\`\`\`
+payment-response: eyJzdWNjZXNzIjp0cnVlLCJ0cmFuc2FjdGlvbiI6Ii4uLiJ9
+\`\`\`
+
+Decode using \`decodePaymentResponse()\` to get:
+- \`success\`: Whether settlement succeeded
+- \`transaction\`: Transaction hash on the Stacks blockchain
+- \`payer\`: Payer's Stacks address
+- \`network\`: CAIP-2 network identifier
+
+## V1 vs V2 Headers
+
+| V2 (Recommended) | V1 (Legacy) |
+|------------------|-------------|
+| \`payment-required\` | (body only) |
+| \`payment-signature\` | \`X-PAYMENT\` |
+| \`payment-response\` | \`X-PAYMENT-RESPONSE\` |
 
 ## Summary
 
@@ -643,7 +738,8 @@ HTTP 402 is the foundation of the x402-stacks protocol, enabling services to dec
 - Signals payment is required
 - Communicates necessary payment details in STX
 - Integrates seamlessly with standard HTTP workflows
-- Works natively with the Stacks blockchain`
+- Works natively with the Stacks blockchain
+- Uses standardized base64-encoded headers (V2)`
   },
   {
     id: 'client-server',
@@ -670,23 +766,23 @@ Clients can include:
 ### Client Responsibilities
 
 - **Initiate requests:** Send an HTTP request to the resource server
-- **Handle payment requirements:** Read the \`402 Payment Required\` response and extract payment details
+- **Handle payment requirements:** Read the \`402 Payment Required\` response and \`payment-required\` header
 - **Prepare payment payload:** Sign a transaction with their Stacks wallet
-- **Resubmit request with payment:** Retry the request with the \`X-PAYMENT\` header containing the signed payment payload
+- **Resubmit request with payment:** Retry the request with the \`payment-signature\` header containing the signed payment payload (base64-encoded)
 
-### Client Code Example
+### Client Code Example (V2)
 
 \`\`\`typescript
 import {
-  withPaymentInterceptor,
+  wrapAxiosWithPayment,
   privateKeyToAccount
 } from 'x402-stacks';
 import axios from 'axios';
 
 const account = privateKeyToAccount(privateKey, 'testnet');
 
-// Wrap axios to handle payments automatically
-const api = withPaymentInterceptor(
+// Wrap axios to handle payments automatically (V2)
+const api = wrapAxiosWithPayment(
   axios.create({ baseURL: 'http://api.example.com' }),
   account
 );
@@ -714,35 +810,35 @@ Servers can include:
 - **Settle transactions:** Upon successful verification, payment is settled on the Stacks blockchain
 - **Provide the resource:** Once payment is confirmed, return the requested resource to the client
 
-### Server Code Example
+### Server Code Example (V2)
 
 \`\`\`typescript
 import express from 'express';
-import { x402PaymentRequired, getPayment, STXtoMicroSTX } from 'x402-stacks';
+import { paymentMiddleware, getPayment, STXtoMicroSTX } from 'x402-stacks';
 
 const app = express();
 
 app.get('/api/premium-data',
-  x402PaymentRequired({
+  paymentMiddleware({
     amount: STXtoMicroSTX(0.001), // 0.001 STX
-    address: 'SP2...',
-    network: 'testnet',
-    facilitatorUrl: 'https://facilitator.x402stacks.xyz',
+    payTo: 'SP2...',              // V2 uses 'payTo' instead of 'address'
+    network: 'testnet',           // Accepts 'testnet' or CAIP-2 'stacks:2147483648'
+    facilitatorUrl: 'https://facilitator.stacksx402.com',
   }),
   (req, res) => {
     const payment = getPayment(req);
-    res.json({ data: 'Premium content', txId: payment.txId });
+    res.json({ data: 'Premium content', transaction: payment?.transaction });
   }
 );
 \`\`\`
 
 Servers do not need to manage client identities or maintain session state. Verification and settlement are handled per request.
 
-## Communication Flow
+## Communication Flow (V2)
 
 \`\`\`
 ┌──────────────────────────────────────────────────────────────┐
-│                    x402-stacks FLOW                          │
+│                    x402-stacks FLOW (V2)                     │
 └──────────────────────────────────────────────────────────────┘
 
   CLIENT                                              SERVER
@@ -751,13 +847,14 @@ Servers do not need to manage client identities or maintain session state. Verif
     │───────────────────────────────────────────────────>│
     │                                                    │
     │  2. 402 Payment Required                           │
-    │     { amount, address, network, facilitatorUrl }   │
+    │     payment-required: <base64-encoded>             │
+    │     { x402Version: 2, accepts: [...] }             │
     │<───────────────────────────────────────────────────│
     │                                                    │
     │  3. Sign payment with Stacks wallet                │
     │                                                    │
     │  4. GET /api/premium-data                          │
-    │     X-PAYMENT: <signed-payload>                    │
+    │     payment-signature: <base64-encoded>            │
     │───────────────────────────────────────────────────>│
     │                                                    │
     │                    ┌─────────────┐                 │
@@ -767,7 +864,8 @@ Servers do not need to manage client identities or maintain session state. Verif
     │                    └─────────────┘                 │
     │                                                    │
     │  5. 200 OK + Resource                              │
-    │     X-PAYMENT-RESPONSE: { txId, amount, sender }   │
+    │     payment-response: <base64-encoded>             │
+    │     { success, transaction, payer, network }       │
     │<───────────────────────────────────────────────────│
 \`\`\`
 
@@ -804,7 +902,7 @@ By using a facilitator, servers do not need to maintain direct blockchain connec
 The official x402-stacks facilitator is hosted at:
 
 \`\`\`
-https://facilitator.x402stacks.xyz
+https://facilitator.stacksx402.com
 \`\`\`
 
 This facilitator:
@@ -845,48 +943,47 @@ Using a facilitator provides:
 | **Faster integration** | Start accepting payments with minimal blockchain-specific development |
 | **Security** | Centralized verification prevents common attack vectors |
 
-## Interaction Flow
+## Interaction Flow (V2)
 
 \`\`\`
 1. CLIENT makes HTTP request to RESOURCE SERVER
 
 2. RESOURCE SERVER responds with 402 Payment Required
-   {
-     "amount": 10,
-     "address": "SP2...",
-     "network": "testnet",
-     "facilitatorUrl": "https://facilitator.x402stacks.xyz"
+   Headers: payment-required: <base64-encoded>
+   Body: {
+     "x402Version": 2,
+     "accepts": [{ "network": "stacks:2147483648", "payTo": "SP2...", ... }]
    }
 
 3. CLIENT signs payment with Stacks wallet
 
-4. CLIENT retries request with X-PAYMENT header
+4. CLIENT retries request with payment-signature header (base64-encoded)
 
-5. RESOURCE SERVER sends payment to FACILITATOR /verify
+5. RESOURCE SERVER sends payment to FACILITATOR /settle
 
 6. FACILITATOR verifies signature and payment details
 
 7. If valid, FACILITATOR submits to Stacks blockchain
 
-8. FACILITATOR returns transaction ID to RESOURCE SERVER
+8. FACILITATOR returns settlement response to RESOURCE SERVER
 
-9. RESOURCE SERVER includes X-PAYMENT-RESPONSE header
+9. RESOURCE SERVER includes payment-response header (base64-encoded)
    and returns the requested resource to CLIENT
 \`\`\`
 
-## Configuration
+## Configuration (V2)
 
 When setting up a server, configure the facilitator URL:
 
 \`\`\`typescript
-import { x402PaymentRequired } from 'x402-stacks';
+import { paymentMiddleware } from 'x402-stacks';
 
 app.get('/api/data',
-  x402PaymentRequired({
-    amount: 1000, // microSTX
-    address: 'SP2...',
-    network: 'testnet',
-    facilitatorUrl: 'https://facilitator.x402stacks.xyz',
+  paymentMiddleware({
+    amount: '1000',  // microSTX (string or bigint)
+    payTo: 'SP2...', // V2 uses 'payTo'
+    network: 'testnet', // or CAIP-2: 'stacks:2147483648'
+    facilitatorUrl: 'https://facilitator.stacksx402.com',
   }),
   handler
 );
@@ -897,18 +994,21 @@ app.get('/api/data',
 Set in your \`.env\` file:
 
 \`\`\`bash
-FACILITATOR_URL=https://facilitator.x402stacks.xyz
+FACILITATOR_URL=https://facilitator.stacksx402.com
 \`\`\`
 
-## Endpoints
+## Endpoints (V2)
 
 The facilitator exposes these endpoints:
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| \`/verify\` | POST | Verify a payment payload |
-| \`/settle\` | POST | Settle a verified payment on-chain |
+| \`/verify\` | POST | Verify a payment payload without settling |
+| \`/settle\` | POST | Verify and settle a payment on-chain |
+| \`/supported\` | GET | List supported payment schemes and networks |
 | \`/health\` | GET | Health check |
+
+> **Note:** V1 used \`/api/v1/verify\` and \`/api/v1/settle\`. V2 uses the root paths directly.
 
 ## Summary
 
@@ -918,7 +1018,173 @@ The facilitator acts as an independent verification and settlement layer within 
 - Submit transactions on-chain reliably
 - Focus on their core API functionality
 
-The official facilitator at \`https://facilitator.x402stacks.xyz\` is ready for both testnet and mainnet use.`
+The official facilitator at \`https://facilitator.stacksx402.com\` is ready for both testnet and mainnet use.`
+  },
+  {
+    id: 'migration',
+    title: 'Migrating from V1 to V2',
+    slug: 'getting-started/migration',
+    content: `# Migrating from V1 to V2
+
+x402-stacks v2.0 introduces Coinbase-compatible protocol changes. This guide covers all breaking changes and how to update your code.
+
+## Why V2?
+
+- **Coinbase x402 protocol compatibility** - Standardized protocol for interoperability
+- **CAIP-2 network identifiers** - Industry-standard network identification
+- **Base64-encoded headers** - Cleaner header format
+- **Improved naming** - More intuitive function names
+
+## Quick Migration Checklist
+
+- [ ] Update npm package: \`npm install x402-stacks@latest\`
+- [ ] Replace deprecated function imports with V2 equivalents
+- [ ] Change \`address\` to \`payTo\` in middleware config
+- [ ] Update header parsing to use V2 functions
+- [ ] Test with \`https://facilitator.stacksx402.com\`
+
+## Function Renames
+
+### Client-Side
+
+| V1 (Deprecated) | V2 (Recommended) | Notes |
+|-----------------|------------------|-------|
+| \`withPaymentInterceptor()\` | \`wrapAxiosWithPayment()\` | Wraps axios instance |
+| \`decodeXPaymentResponse()\` | \`decodePaymentResponse()\` | Decodes settlement header |
+| \`x-payment-response\` header | \`payment-response\` header | Base64-encoded JSON |
+
+**Before (V1):**
+\`\`\`typescript
+import { withPaymentInterceptor, decodeXPaymentResponse } from 'x402-stacks';
+
+const api = withPaymentInterceptor(axios.create(), account);
+const response = await api.get('/api/data');
+const payment = decodeXPaymentResponse(response.headers['x-payment-response']);
+\`\`\`
+
+**After (V2):**
+\`\`\`typescript
+import { wrapAxiosWithPayment, decodePaymentResponse } from 'x402-stacks';
+
+const api = wrapAxiosWithPayment(axios.create(), account);
+const response = await api.get('/api/data');
+const payment = decodePaymentResponse(response.headers['payment-response']);
+\`\`\`
+
+### Server-Side
+
+| V1 (Deprecated) | V2 (Recommended) | Notes |
+|-----------------|------------------|-------|
+| \`x402PaymentRequired()\` | \`paymentMiddleware()\` | Express middleware |
+| \`address\` config | \`payTo\` config | Recipient address |
+| \`X-PAYMENT\` header | \`payment-signature\` header | Client payment |
+| \`X-PAYMENT-RESPONSE\` header | \`payment-response\` header | Settlement response |
+
+**Before (V1):**
+\`\`\`typescript
+import { x402PaymentRequired, getPayment } from 'x402-stacks';
+
+app.get('/api/data',
+  x402PaymentRequired({
+    amount: STXtoMicroSTX(0.001),
+    address: SERVER_ADDRESS,  // V1 config
+    network: 'testnet',
+    facilitatorUrl: FACILITATOR_URL,
+  }),
+  (req, res) => {
+    const payment = getPayment(req);
+    res.json({ txId: payment.txId });
+  }
+);
+\`\`\`
+
+**After (V2):**
+\`\`\`typescript
+import { paymentMiddleware, getPayment } from 'x402-stacks';
+
+app.get('/api/data',
+  paymentMiddleware({
+    amount: STXtoMicroSTX(0.001),
+    payTo: SERVER_ADDRESS,  // V2 config - renamed!
+    network: 'testnet',     // Also accepts CAIP-2: 'stacks:2147483648'
+    facilitatorUrl: FACILITATOR_URL,
+  }),
+  (req, res) => {
+    const payment = getPayment(req);
+    res.json({ transaction: payment?.transaction });
+  }
+);
+\`\`\`
+
+## Network Format
+
+V2 uses CAIP-2 network identifiers internally, but accepts both formats:
+
+| V1 Format | V2 CAIP-2 Format | Notes |
+|-----------|------------------|-------|
+| \`'mainnet'\` | \`'stacks:1'\` | Stacks mainnet |
+| \`'testnet'\` | \`'stacks:2147483648'\` | Stacks testnet |
+
+> **Note:** V2 middleware auto-converts V1 network strings, so \`'testnet'\` still works.
+
+## HTTP Headers
+
+| Purpose | V1 Header | V2 Header | Encoding |
+|---------|-----------|-----------|----------|
+| Payment requirements | (body only) | \`payment-required\` | Base64 JSON |
+| Client payment | \`X-PAYMENT\` | \`payment-signature\` | Base64 JSON |
+| Settlement response | \`X-PAYMENT-RESPONSE\` | \`payment-response\` | Base64 JSON |
+
+## Facilitator Endpoints
+
+| V1 Endpoint | V2 Endpoint |
+|-------------|-------------|
+| \`/api/v1/verify\` | \`/verify\` |
+| \`/api/v1/settle\` | \`/settle\` |
+| (none) | \`/supported\` |
+
+## Payment Response Changes
+
+**V1 Response:**
+\`\`\`typescript
+{
+  txId: string;
+  amount: number;
+  sender: string;
+}
+\`\`\`
+
+**V2 Response:**
+\`\`\`typescript
+{
+  success: boolean;
+  transaction: string;  // renamed from txId
+  payer: string;        // renamed from sender
+  network: string;      // CAIP-2 format
+  errorReason?: string; // if success is false
+}
+\`\`\`
+
+## Backward Compatibility
+
+The V2 library exports V1 functions for backward compatibility:
+
+\`\`\`typescript
+// These still work but are deprecated
+import {
+  withPaymentInterceptor,  // alias for wrapAxiosWithPayment
+  x402PaymentRequired,     // alias for paymentMiddleware
+  decodeXPaymentResponse,  // V1 decoder
+} from 'x402-stacks';
+\`\`\`
+
+We recommend migrating to V2 functions for better compatibility with the broader x402 ecosystem.
+
+## Need Help?
+
+- [x402-stacks npm package](https://www.npmjs.com/package/x402-stacks)
+- [GitHub Repository](https://github.com/tony1908/x402Stacks)
+- [Example Repository](https://github.com/tony1908/x402-stacks-example)`
   }
 ];
 
@@ -931,6 +1197,7 @@ export const NAV_STRUCTURE: NavItem[] = [
       { id: 'quickstart-buyers', title: 'Quickstart for Buyers', slug: 'getting-started/quickstart-buyers' },
       { id: 'quickstart-sellers', title: 'Quickstart for Sellers', slug: 'getting-started/quickstart-sellers' },
       { id: 'register-x402scan', title: 'Register with x402scan', slug: 'getting-started/register-x402scan' },
+      { id: 'migration', title: 'Migration Guide', slug: 'getting-started/migration' },
     ]
   },
   {
