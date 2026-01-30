@@ -50,7 +50,7 @@ export const DocContent: React.FC<DocContentProps> = ({ page }) => {
          </div>
 
          <div className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-800 flex justify-between text-sm text-slate-500 dark:text-slate-400">
-            <span>Last updated: October 24, 2023</span>
+            <span>Last updated: January 2026</span>
             <a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Edit this page on GitHub</a>
          </div>
        </div>
